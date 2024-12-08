@@ -5,3 +5,4 @@ psutil
 tqdm
 torch
 matplotlib
+pyyaml
