@@ -1,6 +1,7 @@
-streamlit
+streamlit=1.39.0
 numpy
 opencv-python-headless
 psutil
 tqdm
 torch
+matplotlib
