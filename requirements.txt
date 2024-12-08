@@ -10,3 +10,4 @@ torchvision
 shapely
 scipy
 lap
+py-cpuinfo
