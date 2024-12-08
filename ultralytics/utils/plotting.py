@@ -444,7 +444,7 @@ class Annotator:
         cv2.rectangle(im0, (rect_x1, rect_y1), (rect_x2, rect_y2), bg_color, -1)
         cv2.putText(im0, text, (text_x, text_y), 0, self.sf, txt_color, self.tf, lineType=cv2.LINE_AA)
 
-    def display_analytics(self, im0, text, txt_color, bg_color, margin):
+    def display_analytics(self, im0, text, txt_color, bg_color, margin, x, y):
         """
         Display the overall statistics for parking lots
         Args:
@@ -463,14 +463,19 @@ class Annotator:
             text_size = cv2.getTextSize(txt, 0, self.sf, self.tf)[0]
             if text_size[0] < 5 or text_size[1] < 5:
                 text_size = (5, 5)
-            text_x = im0.shape[1] - text_size[0] - margin * 2 - horizontal_gap
-            text_y = text_y_offset + text_size[1] + margin * 2 + vertical_gap
+            # text_x = im0.shape[1] - text_size[0] - margin * 2 - horizontal_gap
+            # text_y = text_y_offset + text_size[1] + margin * 2 + vertical_gap
+
+            text_x = x
+            text_y = y
             rect_x1 = text_x - margin * 2
             rect_y1 = text_y - text_size[1] - margin * 2
             rect_x2 = text_x + text_size[0] + margin * 2
             rect_y2 = text_y + margin * 2
+
+            # Draw rectangle and text
             cv2.rectangle(im0, (rect_x1, rect_y1), (rect_x2, rect_y2), bg_color, -1)
-            cv2.putText(im0, txt, (text_x, text_y), 0, self.sf, txt_color, self.tf, lineType=cv2.LINE_AA)
+            cv2.putText(im0, txt, (x, y), 0, self.sf, txt_color, self.tf, lineType=cv2.LINE_AA)
             text_y_offset = rect_y2
 
     @staticmethod
