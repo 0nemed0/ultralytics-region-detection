@@ -64,6 +64,9 @@ class ObjectCounter:
         self.counting_region = None
         self.region_color = count_reg_color
         self.region_thickness = region_thickness
+        # The 2 lines
+        self.count_ids_edge1 = []
+        self.count_ids_edge2 = []
 
         # Image and annotation Information
         self.im0 = None
@@ -95,6 +98,7 @@ class ObjectCounter:
 
         # Check if environment supports imshow
         self.env_check = check_imshow(warn=True)
+ 
 
         # Initialize counting region
         if len(self.reg_pts) == 2:
@@ -139,7 +143,9 @@ class ObjectCounter:
             self.is_drawing = False
             self.selected_point = None
 
-    def extract_and_process_tracks(self, tracks):
+    from shapely.geometry import LineString, Point
+
+    def extract_and_process_tracks(self, tracks, x, y):
         """Extracts and processes tracks for object counting in a video stream."""
 
         # Annotator Init and region drawing
@@ -147,6 +153,16 @@ class ObjectCounter:
 
         # Draw region or line
         self.annotator.draw_region(reg_pts=self.reg_pts, color=self.region_color, thickness=self.region_thickness)
+
+        # Define polygon edges
+        edge1 = LineString([self.reg_pts[0], self.reg_pts[3]])  # (x1, y1) -> (x4, y4)
+        edge2 = LineString([self.reg_pts[1], self.reg_pts[2]])  # (x2, y2) -> (x3, y3)
+
+        # Initialize tracking of crossings
+        if not hasattr(self, "count_ids_edge1"):
+            self.count_ids_edge1 = []
+        if not hasattr(self, "count_ids_edge2"):
+            self.count_ids_edge2 = []
 
         if tracks[0].boxes.id is not None:
             boxes = tracks[0].boxes.xyxy.cpu()
@@ -158,9 +174,13 @@ class ObjectCounter:
                 # Draw bounding box
                 self.annotator.box_label(box, label=f"{self.names[cls]}#{track_id}", color=colors(int(track_id), True))
 
+                # Change names to vehicles
+                vehicles = self.names[cls]
+                vehicles = ["vehicles"]
+
                 # Store class info
-                if self.names[cls] not in self.class_wise_count:
-                    self.class_wise_count[self.names[cls]] = {"IN": 0, "OUT": 0}
+                if vehicles[0] not in self.class_wise_count:
+                    self.class_wise_count[vehicles[0]] = {"IN": 0, "OUT": 0}
 
                 # Draw Tracks
                 track_line = self.track_history[track_id]
@@ -176,38 +196,40 @@ class ObjectCounter:
                         track_thickness=self.track_thickness,
                     )
 
-                prev_position = self.track_history[track_id][-2] if len(self.track_history[track_id]) > 1 else None
+                # Check crossing of edges
+                prev_point = Point(track_line[-2]) if len(track_line) > 1 else None
+                current_point = Point(track_line[-1])
 
-                # Count objects in any polygon
-                if len(self.reg_pts) >= 3:
-                    is_inside = self.counting_region.contains(Point(track_line[-1]))
+                if prev_point:
+                    crossed_edge1 = edge1.intersects(LineString([prev_point, current_point]))
+                    crossed_edge2 = edge2.intersects(LineString([prev_point, current_point]))
 
-                    if prev_position is not None and is_inside and track_id not in self.count_ids:
-                        self.count_ids.append(track_id)
+                    if crossed_edge1 and track_id not in self.count_ids_edge1:
+                        self.count_ids_edge1.append(track_id)
+  
+                    if crossed_edge2 and track_id not in self.count_ids_edge2:
+                        self.count_ids_edge2.append(track_id)
 
-                        if (box[0] - prev_position[0]) * (self.counting_region.centroid.x - prev_position[0]) > 0:
-                            self.in_counts += 1
-                            self.class_wise_count[self.names[cls]]["IN"] += 1
-                        else:
-                            self.out_counts += 1
-                            self.class_wise_count[self.names[cls]]["OUT"] += 1
+                    # Increment count
+                    if crossed_edge2 and track_id in self.count_ids_edge1:
+                        # Crossed edge1 first, then edge2 -> IN
+                        self.out_counts += 1
+                        self.class_wise_count[vehicles[0]]["IN"] += 1
+                        # Remove track ID after counting
+                        self.count_ids_edge1.remove(track_id)
+                        self.count_ids_edge2.remove(track_id)
 
-                # Count objects using line
-                elif len(self.reg_pts) == 2:
-                    if prev_position is not None and track_id not in self.count_ids:
-                        distance = Point(track_line[-1]).distance(self.counting_region)
-                        if distance < self.line_dist_thresh and track_id not in self.count_ids:
-                            self.count_ids.append(track_id)
+                    if crossed_edge1 and track_id in self.count_ids_edge2:
+                        # Crossed edge2 first, then edge1 -> OUT
+                        self.in_counts += 1
+                        self.class_wise_count[vehicles[0]]["OUT"] += 1
+                        # Remove track ID after counting
+                        self.count_ids_edge1.remove(track_id)
+                        self.count_ids_edge2.remove(track_id)
 
-                            if (box[0] - prev_position[0]) * (self.counting_region.centroid.x - prev_position[0]) > 0:
-                                self.in_counts += 1
-                                self.class_wise_count[self.names[cls]]["IN"] += 1
-                            else:
-                                self.out_counts += 1
-                                self.class_wise_count[self.names[cls]]["OUT"] += 1
 
+        # Prepare labels for analytics display
         labels_dict = {}
-
         for key, value in self.class_wise_count.items():
             if value["IN"] != 0 or value["OUT"] != 0:
                 if not self.view_in_counts and not self.view_out_counts:
@@ -219,8 +241,10 @@ class ObjectCounter:
                 else:
                     labels_dict[str.capitalize(key)] = f"IN {value['IN']} OUT {value['OUT']}"
 
+
+        # Display analytics
         if labels_dict:
-            self.annotator.display_analytics(self.im0, labels_dict, self.count_txt_color, self.count_bg_color, 10)
+            self.annotator.display_analytics(self.im0, labels_dict, self.count_txt_color, self.count_bg_color, 10, x, y)
 
     def display_frames(self):
         """Displays the current frame with annotations and regions in a window."""
@@ -233,7 +257,7 @@ class ObjectCounter:
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 return
 
-    def start_counting(self, im0, tracks):
+    def start_counting(self, im0, tracks, x, y):
         """
         Main function to start the object counting process.
 
@@ -242,7 +266,7 @@ class ObjectCounter:
             tracks (list): List of tracks obtained from the object tracking process.
         """
         self.im0 = im0  # store image
-        self.extract_and_process_tracks(tracks)  # draw region even if no objects
+        self.extract_and_process_tracks(tracks, x, y)  # draw region even if no objects
 
         if self.view_img:
             self.display_frames()
