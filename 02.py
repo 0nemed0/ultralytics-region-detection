@@ -22,7 +22,8 @@ option = st.selectbox('Select Input Type:', ('Recorded Video', 'Live Webcam', 'E
 # Function to process video
 def process_video(cap, polygons, single_line):
     if cap and cap.isOpened():
-        # Initialize single-element container
+
+        # Initialize Streamlit container
         stframe = st.empty()
 
         # Specify classes to count
@@ -56,7 +57,7 @@ def process_video(cap, polygons, single_line):
         while cap.isOpened():
             success, frame = cap.read()
             if not success:
-                st.info("Video processing is not success.")
+                st.info("Video processing completed.")
                 break
 
             # Perform object tracking on the current frame, filtering by specified classes
@@ -76,8 +77,16 @@ def process_video(cap, polygons, single_line):
         # Release resources
         cap.release()
         cv2.destroyAllWindows()
+
+        # Check and display file size
+        # file_size = os.path.getsize(temp_video_file.name)
+        # st.info(f"Processed video saved: {temp_video_file.name} ({file_size} bytes)")
+        # st.video(temp_video_file.name)
+        # Return the path to the recorded video
+        # return temp_video_file.name
     else:
         st.info("Please select a valid input and ensure the source is accessible.")
+        return None
 
 # Settings sliders
 left_column, right_column = st.columns([1, 2])
@@ -125,13 +134,11 @@ with right_column:
 
         if video is not None:
             # Open the video capture file using OpenCV
-            cap = cv2.VideoCapture(str(video))
+            cap = cv2.VideoCapture(str(settings.VIDEOS_DICT.get(video)))
 
-            # Process the video and record the output
-            processed_video_path = process_video(cap, polygons, single_line)
-            
-            if processed_video_path:
-                st.video(processed_video_path)
+            # Process the video 
+            process_video(cap, polygons, single_line)
+
 
     elif option == 'Live Webcam':
         cap = cv2.VideoCapture(0)
