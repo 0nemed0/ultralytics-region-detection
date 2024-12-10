@@ -17,7 +17,7 @@ ROOT = ROOT.relative_to(Path.cwd())
 # Videos config
 VIDEO_DIR = ROOT / 'videos'
 VIDEOS_DICT = {
-    'video_1': VIDEO_DIR / 'video_1.mp4',
+    'video_1': VIDEO_DIR / '01_output_video.mp4',
     #'video_2': VIDEO_DIR / 'video_2.mp4',
     #'video_3': VIDEO_DIR / 'video_3.mp4',
 }
