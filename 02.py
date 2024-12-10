@@ -22,16 +22,7 @@ option = st.selectbox('Select Input Type:', ('Recorded Video', 'Live Webcam', 'E
 # Function to process video
 def process_video(cap, polygons, single_line):
     if cap and cap.isOpened():
-        # Temporary file to save the processed video
-        temp_video_file = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        fps = int(cap.get(cv2.CAP_PROP_FPS))
-        
-        out = cv2.VideoWriter(temp_video_file.name, fourcc, fps, (frame_width, frame_height))
-
-        # Initialize Streamlit container
+        # Initialize single-element container
         stframe = st.empty()
 
         # Specify classes to count
@@ -65,7 +56,7 @@ def process_video(cap, polygons, single_line):
         while cap.isOpened():
             success, frame = cap.read()
             if not success:
-                st.info("Video processing completed.")
+                st.info("Video processing is not success.")
                 break
 
             # Perform object tracking on the current frame, filtering by specified classes
@@ -79,26 +70,14 @@ def process_video(cap, polygons, single_line):
                 for counter2 in counters2:
                     frame = counter2.start_counting(frame, tracks, 900, 50)
 
-            # Write the annotated frame to the video file
-            out.write(frame)
-
             # Stream the annotated frame to the app
             stframe.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), channels="RGB", use_column_width=True)
 
         # Release resources
         cap.release()
-        out.release()
         cv2.destroyAllWindows()
-
-        # Check and display file size
-        # file_size = os.path.getsize(temp_video_file.name)
-        # st.info(f"Processed video saved: {temp_video_file.name} ({file_size} bytes)")
-        # st.video(temp_video_file.name)
-        # Return the path to the recorded video
-        return temp_video_file.name
     else:
         st.info("Please select a valid input and ensure the source is accessible.")
-        return None
 
 # Settings sliders
 left_column, right_column = st.columns([1, 2])
